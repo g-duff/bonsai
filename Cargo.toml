@@ -1,5 +1,6 @@
 [workspace]
 
 members = [
+    "crates/bonsai_consumer",
     "crates/bonsai_producer",
 ]
