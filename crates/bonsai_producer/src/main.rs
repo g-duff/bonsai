@@ -2,24 +2,22 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server, StatusCode};
+use redis::Client;
 
 #[tokio::main]
 async fn main() {
-    // We'll bind to 127.0.0.1:3000
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
 
-    let route_table = Arc::new(Mutex::new(HashMap::<&str, String>::new()));
+    let route_table = Arc::new(Mutex::new(HashMap::<String, String>::new()));
     let route_table_ref = Arc::clone(&route_table);
 
-    // A `Service` is needed for every connection, so this
-    // creates one from our `hello_world` function.
     let make_svc = make_service_fn(move |_conn| {
         let route_table_ref = Arc::clone(&route_table_ref);
         async {
-            // service_fn converts our function into a `Service`
             Ok::<_, Infallible>(service_fn(move |req: Request<Body>| {
                 let route_table_ref = Arc::clone(&route_table_ref);
                 async { bonsai_router(req, route_table_ref).await }
@@ -29,16 +27,21 @@ async fn main() {
 
     let server = Server::bind(&addr).serve(make_svc);
 
-    route_table
-        .lock()
-        .unwrap()
-        .insert("/foo", String::from("foo"));
-    route_table
-        .lock()
-        .unwrap()
-        .insert("/bar", String::from("bar"));
+    let _schema_registry = thread::spawn(move || loop {
+        let redis_client = Client::open("redis://127.0.0.1/").unwrap();
+        let mut con = redis_client.get_connection().unwrap();
+        let mut pubsub = con.as_pubsub();
 
-    // Run this server for... forever!
+        pubsub.subscribe("route").unwrap();
+        let msg = pubsub.get_message().unwrap();
+        let payload: String = msg.get_payload().unwrap();
+        println!("{}: {}", msg.get_channel_name(), payload);
+        route_table
+            .lock()
+            .unwrap()
+            .insert(format!("/{}", payload), payload.clone());
+    });
+
     if let Err(e) = server.await {
         eprintln!("server error: {}", e);
     }
@@ -46,7 +49,7 @@ async fn main() {
 
 async fn bonsai_router(
     req: Request<Body>,
-    route_table: Arc<Mutex<HashMap<&str, String>>>,
+    route_table: Arc<Mutex<HashMap<String, String>>>,
 ) -> Result<Response<Body>, Infallible> {
     let mut response = Response::new(Body::empty());
 
