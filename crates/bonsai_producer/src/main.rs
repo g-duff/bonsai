@@ -6,24 +6,6 @@ use std::sync::{Arc, Mutex};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server, StatusCode};
 
-async fn bonsai_router(
-    req: Request<Body>,
-    route_table: Arc<Mutex<HashMap::<&str, String>>>,
-) -> Result<Response<Body>, Infallible> {
-    let mut response = Response::new(Body::empty());
-
-    match route_table.lock().unwrap().get(req.uri().path()) {
-        Some(x) => {
-            *response.body_mut() = Body::from(x.clone());
-        }
-        None => {
-            *response.status_mut() = StatusCode::NOT_FOUND;
-        }
-    };
-
-    Ok(response)
-}
-
 #[tokio::main]
 async fn main() {
     // We'll bind to 127.0.0.1:3000
@@ -55,3 +37,22 @@ async fn main() {
         eprintln!("server error: {}", e);
     }
 }
+
+async fn bonsai_router(
+    req: Request<Body>,
+    route_table: Arc<Mutex<HashMap::<&str, String>>>,
+) -> Result<Response<Body>, Infallible> {
+    let mut response = Response::new(Body::empty());
+
+    match route_table.lock().unwrap().get(req.uri().path()) {
+        Some(x) => {
+            *response.body_mut() = Body::from(x.clone());
+        }
+        None => {
+            *response.status_mut() = StatusCode::NOT_FOUND;
+        }
+    };
+
+    Ok(response)
+}
+
