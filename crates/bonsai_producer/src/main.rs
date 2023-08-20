@@ -21,7 +21,7 @@ async fn main() {
         async {
             // service_fn converts our function into a `Service`
             Ok::<_, Infallible>(service_fn(move |req: Request<Body>| {
-            let route_table_ref = Arc::clone(&route_table_ref);
+                let route_table_ref = Arc::clone(&route_table_ref);
                 async { bonsai_router(req, route_table_ref).await }
             }))
         }
@@ -29,8 +29,14 @@ async fn main() {
 
     let server = Server::bind(&addr).serve(make_svc);
 
-    route_table.lock().unwrap().insert("/foo", String::from("foo"));
-    route_table.lock().unwrap().insert("/bar", String::from("bar"));
+    route_table
+        .lock()
+        .unwrap()
+        .insert("/foo", String::from("foo"));
+    route_table
+        .lock()
+        .unwrap()
+        .insert("/bar", String::from("bar"));
 
     // Run this server for... forever!
     if let Err(e) = server.await {
@@ -40,7 +46,7 @@ async fn main() {
 
 async fn bonsai_router(
     req: Request<Body>,
-    route_table: Arc<Mutex<HashMap::<&str, String>>>,
+    route_table: Arc<Mutex<HashMap<&str, String>>>,
 ) -> Result<Response<Body>, Infallible> {
     let mut response = Response::new(Body::empty());
 
@@ -55,4 +61,3 @@ async fn bonsai_router(
 
     Ok(response)
 }
-
