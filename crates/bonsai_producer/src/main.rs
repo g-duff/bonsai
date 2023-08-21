@@ -26,20 +26,22 @@ async fn main() {
     });
 
     let server = Server::bind(&addr).serve(make_svc);
-
-    let _schema_registry = thread::spawn(move || loop {
+    let _schema_registry = thread::spawn(move || {
         let redis_client = Client::open("redis://127.0.0.1/").unwrap();
         let mut con = redis_client.get_connection().unwrap();
         let mut pubsub = con.as_pubsub();
 
         pubsub.subscribe("route").unwrap();
-        let msg = pubsub.get_message().unwrap();
-        let payload: String = msg.get_payload().unwrap();
-        println!("{}: {}", msg.get_channel_name(), payload);
-        route_table
-            .lock()
-            .unwrap()
-            .insert(format!("/{}", payload), payload.clone());
+
+        loop {
+            let msg = pubsub.get_message().unwrap();
+            let payload: String = msg.get_payload().unwrap();
+            println!("{}: {}", msg.get_channel_name(), payload);
+            route_table
+                .lock()
+                .unwrap()
+                .insert(format!("/{}", payload), payload.to_owned());
+        }
     });
 
     if let Err(e) = server.await {
